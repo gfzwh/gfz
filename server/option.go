@@ -2,7 +2,7 @@ package server
 
 import "context"
 
-type Options func(*options)
+type HandlerOption func(*options)
 
 type options struct {
 	bind string
@@ -11,18 +11,18 @@ type options struct {
 	ctx context.Context
 }
 
-func Bind(addr string) Options {
+func Bind(addr string) HandlerOption {
 	return func(c *options) {
 		c.bind = addr
 	}
 }
-func Port(port int) Options {
+func Port(port int) HandlerOption {
 	return func(c *options) {
 		c.port = port
 	}
 }
 
-func SetOption(k, v interface{}) Options {
+func SetOption(k, v interface{}) HandlerOption {
 	return func(o *options) {
 		if o.ctx == nil {
 			o.ctx = context.Background()

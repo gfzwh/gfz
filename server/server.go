@@ -160,7 +160,7 @@ func (s *Server) NewHandler(instance interface{}) error {
 	return nil
 }
 
-func (s *Server) Run(opts ...Options) {
+func (s *Server) Run(opts ...HandlerOption) {
 	config := &options{
 		bind: "0.0.0.0",
 		port: 0,
