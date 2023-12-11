@@ -7,7 +7,8 @@ import (
 	"io"
 	"net"
 	"sync"
-	"tcpconnode/gfz/zzlog"
+
+	"github.com/shockerjue/gfz/zzlog"
 )
 
 var (

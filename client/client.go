@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"net"
-	"tcpconnode/gfz/common"
-	"tcpconnode/gfz/proto"
-	"tcpconnode/gfz/tcp"
-	"tcpconnode/gfz/zzlog"
 	"time"
+
+	"github.com/shockerjue/gfz/common"
+	"github.com/shockerjue/gfz/proto"
+	"github.com/shockerjue/gfz/tcp"
+	"github.com/shockerjue/gfz/zzlog"
 )
 
 type Request struct {
