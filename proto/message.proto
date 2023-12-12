@@ -1,7 +1,6 @@
 syntax = "proto3";
 package proto;
 
-
 message MessageReq {
     int64               serialNumber        = 1;
     int64               rpcId               = 2;

@@ -11,8 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bilibili/discovery/naming"
 	"github.com/shockerjue/gfz/common"
 	"github.com/shockerjue/gfz/proto"
+	"github.com/shockerjue/gfz/registry"
 	"github.com/shockerjue/gfz/tcp"
 	"github.com/shockerjue/gfz/zzlog"
 
@@ -25,17 +27,22 @@ type RidItem struct {
 }
 
 type Server struct {
-	rw     sync.RWMutex
-	rpcMap map[uint64]RidItem
+	rw         sync.RWMutex
+	rpcMap     map[uint64]RidItem
+	cancelFunc context.CancelFunc
+	registry   *registry.Registry
+	n          *node
 
 	reqs  int64 // 当前正在处理的请求
 	conns int64 // 当前连接的数量
 }
 
-func NewServer() *Server {
+func NewServer(registry *registry.Registry, n *node) *Server {
 	return &Server{
-		rw:     sync.RWMutex{},
-		rpcMap: make(map[uint64]RidItem),
+		rw:       sync.RWMutex{},
+		rpcMap:   make(map[uint64]RidItem),
+		registry: registry,
+		n:        n,
 	}
 }
 
@@ -161,6 +168,35 @@ func (s *Server) NewHandler(instance interface{}) error {
 	return nil
 }
 
+func (s *Server) register() {
+	// 下面是discovery节点的信息
+	conf := &naming.Config{
+		Nodes:  s.registry.Nodes(), // NOTE: 配置种子节点(1个或多个)，client内部可根据/discovery/nodes节点获取全部node(方便后面增减节点)
+		Region: s.registry.Region(),
+		Zone:   s.registry.Zone(),
+		Host:   s.registry.Host(),
+		Env:    s.registry.Env(),
+	}
+
+	dis := naming.New(conf)
+
+	// 服务的节点信息
+	ins := &naming.Instance{
+		Zone:     s.n.opts.zone,
+		Env:      s.n.opts.env,
+		AppID:    s.n.opts.name, // 服务名，如 usernode
+		Addrs:    []string{"tcp://172.0.0.1:8888"},
+		LastTs:   time.Now().Unix(),
+		Metadata: map[string]string{"weight": "10"},
+	}
+
+	s.cancelFunc, _ = dis.Register(ins)
+}
+
+func (s *Server) Release() {
+	s.cancelFunc()
+}
+
 func (s *Server) Run(opts ...HandlerOption) {
 	config := &options{
 		bind: "0.0.0.0",
@@ -189,6 +225,7 @@ func (s *Server) Run(opts ...HandlerOption) {
 	}
 	defer btl.Close()
 
+	s.register()
 	err = btl.StartListeningAsync()
 	if nil != err {
 		zzlog.Errorf("StartListening error {%v}\n", err)

@@ -2,7 +2,10 @@ package client
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"sync"
 
 	"github.com/shockerjue/gfz/common"
@@ -27,6 +30,25 @@ func Pools() *pools {
 	})
 
 	return instance
+}
+
+func (p *pools) nodelists(svrname string) (addr string) {
+	url := "http://127.0.0.1:7171/discovery/polls?appid=infra.discovery&appid=provider&env=dev&hostname=test1&latest_timestamp=1702368399394043000&latest_timestamp=0"
+	response, err := http.Get(url)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return
+	}
+
+	// Print the response body as a string
+	fmt.Println(string(body))
+	return
 }
 
 func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
