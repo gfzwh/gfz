@@ -20,12 +20,12 @@ func (r *Registry) Nodes() []string {
 func (r *Registry) Region() string {
 	return r.opts.region
 }
-func (r *Registry) Zone(zone string) string {
+func (r *Registry) Zone() string {
 	return r.opts.zone
 }
-func (r *Registry) Env(env string) string {
+func (r *Registry) Env() string {
 	return r.opts.env
 }
-func (r *Registry) Host(host string) string {
+func (r *Registry) Host() string {
 	return r.opts.host
 }
