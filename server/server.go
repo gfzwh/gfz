@@ -62,7 +62,9 @@ func (this *Server) decConn() int64 {
 	return atomic.AddInt64(&this.conns, -1)
 }
 
-func (this *Server) listenCb(ctx context.Context, tcp *net.TCPListener) error {
+func (s *Server) listenCb(ctx context.Context, tcp *net.TCPListener) error {
+	s.register(tcp.Addr().String())
+
 	zzlog.Infof("LCallback ----------  addr:%s\n", tcp.Addr().String())
 
 	return nil
@@ -168,7 +170,7 @@ func (s *Server) NewHandler(instance interface{}) error {
 	return nil
 }
 
-func (s *Server) register() {
+func (s *Server) register(addr string) {
 	// 下面是discovery节点的信息
 	conf := &naming.Config{
 		Nodes:  s.registry.Nodes(), // NOTE: 配置种子节点(1个或多个)，client内部可根据/discovery/nodes节点获取全部node(方便后面增减节点)
@@ -185,7 +187,7 @@ func (s *Server) register() {
 		Zone:     s.n.opts.zone,
 		Env:      s.n.opts.env,
 		AppID:    s.n.opts.name, // 服务名，如 usernode
-		Addrs:    []string{"tcp://172.0.0.1:8888"},
+		Addrs:    []string{fmt.Sprintf("tcp://%s", addr)},
 		LastTs:   time.Now().Unix(),
 		Metadata: map[string]string{"weight": "10"},
 	}
@@ -225,7 +227,6 @@ func (s *Server) Run(opts ...HandlerOption) {
 	}
 	defer btl.Close()
 
-	s.register()
 	err = btl.StartListeningAsync()
 	if nil != err {
 		zzlog.Errorf("StartListening error {%v}\n", err)

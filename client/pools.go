@@ -2,12 +2,19 @@ package client
 
 import (
 	"context"
+	"discovery/naming"
+	"encoding/json"
 	"fmt"
+	"gfz/test/tcpconnode/back/zzlog"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
+	"time"
 
+	"github.com/bilibili/discovery/naming"
 	"github.com/shockerjue/gfz/common"
 	"github.com/shockerjue/gfz/proto"
 	"github.com/shockerjue/gfz/tcp"
@@ -32,9 +39,9 @@ func Pools() *pools {
 	return instance
 }
 
-func (p *pools) nodelists(svrname string) (addr string) {
-	url := "http://127.0.0.1:7171/discovery/polls?appid=infra.discovery&appid=provider&env=dev&hostname=test1&latest_timestamp=1702368399394043000&latest_timestamp=0"
-	response, err := http.Get(url)
+func (p *pools) nodeAddr(svrname string) (addr string) {
+	url := "http://127.0.0.1:7171/discovery/polls?appid=infra.discovery&appid=%s&env=dev&hostname=test1&latest_timestamp=1702368399394043000&latest_timestamp=0"
+	response, err := http.Get(fmt.Sprintf(url, svrname))
 	if err != nil {
 		return
 	}
@@ -46,13 +53,37 @@ func (p *pools) nodelists(svrname string) (addr string) {
 		return
 	}
 
+	zzlog.Warnf("nodeAddr ----> %s\n", string(body))
+	var instances naming.InstancesInfo
+	err = json.Unmarshal(body, &instances)
+	if nil != err {
+		return
+	}
+
+	if _, ok := instances.Instances[svrname]; !ok {
+		return
+	}
+
+	nodes := instances.Instances[svrname]
+
+	rand.Seed(time.Now().UnixNano())
+	nodeIndex := rand.Intn(len(nodes)) // 生成一个介于0和99之间的随机整数
+	node := nodes[nodeIndex]
+	for _, v := range node.Addrs {
+		if strings.Contains(v, "tcp://") {
+			i := strings.Index(v, "tcp://")
+			return v[i:]
+		}
+	}
+
 	// Print the response body as a string
 	fmt.Println(string(body))
 	return
 }
 
 func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:8989")
+	addr := p.nodeAddr(svrname)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return
 	}
