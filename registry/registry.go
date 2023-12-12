@@ -1,11 +1,11 @@
 package registry
 
-type registry struct {
+type Registry struct {
 	opts options
 }
 
-func NewRegistry(opts ...Options) *registry {
-	v := &registry{}
+func NewRegistry(opts ...Options) *Registry {
+	v := &Registry{}
 
 	for _, o := range opts {
 		o(&v.opts)
@@ -14,18 +14,18 @@ func NewRegistry(opts ...Options) *registry {
 	return v
 }
 
-func (r *registry) Nodes() []string {
+func (r *Registry) Nodes() []string {
 	return r.opts.nodes
 }
-func (r *registry) Region() string {
+func (r *Registry) Region() string {
 	return r.opts.region
 }
-func (r *registry) Zone(zone string) string {
+func (r *Registry) Zone(zone string) string {
 	return r.opts.zone
 }
-func (r *registry) Env(env string) string {
+func (r *Registry) Env(env string) string {
 	return r.opts.env
 }
-func (r *registry) Host(host string) string {
+func (r *Registry) Host(host string) string {
 	return r.opts.host
 }
