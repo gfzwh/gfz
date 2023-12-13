@@ -8,7 +8,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/shockerjue/gfz/zzlog"
+	"github.com/gfzwh/gfz/zzlog"
 )
 
 var (

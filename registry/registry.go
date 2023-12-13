@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shockerjue/gfz/zzlog"
+	"github.com/gfzwh/gfz/zzlog"
 
 	"github.com/bilibili/discovery/naming"
 )

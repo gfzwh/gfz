@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/bilibili/discovery/naming"
-	"github.com/shockerjue/gfz/common"
-	"github.com/shockerjue/gfz/proto"
-	"github.com/shockerjue/gfz/registry"
-	"github.com/shockerjue/gfz/tcp"
-	"github.com/shockerjue/gfz/zzlog"
+	"github.com/gfzwh/gfz/common"
+	"github.com/gfzwh/gfz/proto"
+	"github.com/gfzwh/gfz/registry"
+	"github.com/gfzwh/gfz/tcp"
+	"github.com/gfzwh/gfz/zzlog"
 
 	"github.com/StabbyCutyou/buffstreams"
 )
