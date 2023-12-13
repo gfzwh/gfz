@@ -77,6 +77,10 @@ func NewRegistry(opts ...Options) *Registry {
 	return v
 }
 
+func (r *Registry) Url() string {
+	return r.opts.url
+}
+
 func (r *Registry) Nodes() []string {
 	return r.opts.nodes
 }
