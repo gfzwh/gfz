@@ -36,12 +36,12 @@ func Pools() *pools {
 	return instance
 }
 
-func (p *pools) Init(opts ...CallOption) {
-	p.opts = initOpt(opts...)
+func (p *pools) Registry(r *registry.Registry) {
+	p.r = r
 }
 
 func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
-	addr, err := p.r.GetNodeInfo(svrname, p.opts.zone, p.opts.env, p.opts.host)
+	addr, err := p.r.GetNodeInfo(svrname, p.r.Zone(), p.r.Env(), p.r.Host())
 	if nil != err {
 		return
 	}

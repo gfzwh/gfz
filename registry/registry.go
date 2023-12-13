@@ -109,8 +109,8 @@ func (r *Registry) getNode(nodes []*naming.Instance) (node *naming.Instance) {
 // @param	zone	获取哪个区的节点
 func (r *Registry) GetNodeInfo(svrname, zone, env, host string) (addr string, err error) {
 	// env=prod&hostname=fgz-discovery 这两个变量是discovery中的env信息
-	url := "http://127.0.0.1:7171/discovery/polls?appid=infra.discovery&appid=%s&env=dev-0.0.1&hostname=fgz-discovery&latest_timestamp=%d&latest_timestamp=0"
-	response, err := http.Get(fmt.Sprintf(url, svrname, time.Now().UnixNano()-1000))
+	url := "%s/discovery/polls?appid=infra.discovery&appid=%s&env=dev-0.0.1&hostname=fgz-discovery&latest_timestamp=%d&latest_timestamp=0"
+	response, err := http.Get(fmt.Sprintf(url, r.opts.url, svrname, time.Now().UnixNano()-1000))
 	if err != nil {
 		return
 	}

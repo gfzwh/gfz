@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bilibili/discovery/naming"
+	"github.com/gfzwh/gfz/client"
 	"github.com/gfzwh/gfz/common"
 	"github.com/gfzwh/gfz/proto"
 	"github.com/gfzwh/gfz/registry"
@@ -64,6 +65,11 @@ func (this *Server) decConn() int64 {
 
 func (s *Server) listenCb(ctx context.Context, tcp *net.TCPListener) error {
 	s.register(tcp.Addr().String())
+	client.Pools().Registry(registry.NewRegistry(
+		registry.Url(s.registry.Url()),
+		registry.Zone(s.registry.Zone()),
+		registry.Env(s.registry.Env()),
+		registry.Host(s.registry.Host())))
 
 	zzlog.Infof("LCallback ----------  addr:%s\n", tcp.Addr().String())
 

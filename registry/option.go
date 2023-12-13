@@ -3,11 +3,18 @@ package registry
 type Options func(*options)
 
 type options struct {
+	url    string
 	nodes  []string
 	region string
 	zone   string
 	env    string
 	host   string
+}
+
+func Url(url string) Options {
+	return func(c *options) {
+		c.url = url
+	}
 }
 
 func Nodes(nodes []string) Options {

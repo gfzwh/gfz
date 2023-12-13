@@ -5,29 +5,10 @@ import "context"
 type CallOption func(*Options)
 
 type Options struct {
-	onlyCall        bool
-	timeout         int32
-	zone, env, host string
+	onlyCall bool
+	timeout  int32
 
 	ctx context.Context
-}
-
-func Zone(zone string) CallOption {
-	return func(args *Options) {
-		args.zone = zone
-	}
-}
-
-func Env(env string) CallOption {
-	return func(args *Options) {
-		args.env = env
-	}
-}
-
-func Host(host string) CallOption {
-	return func(args *Options) {
-		args.host = host
-	}
 }
 
 func OnlyCall(onlyCall bool) CallOption {
