@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -97,6 +98,8 @@ func (c *Client) Call(ctx context.Context, req *Request, in Message, opts ...Cal
 
 	conn, err := Pools().connectByName(req.name)
 	if nil != err {
+		fmt.Printf("Client.Call err: %v\n", err)
+
 		return nil, err
 	}
 	c.t = conn
