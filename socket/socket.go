@@ -2,12 +2,13 @@ package socket
 
 import (
 	"context"
-	"fmt"
+	"gfz/zzlog"
 	"io"
 	"net"
 	"sync"
 
 	"github.com/gfzwh/gfz/zzlog"
+	"go.uber.org/zap"
 )
 
 const (
@@ -104,11 +105,11 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 	dataBuffer := make([]byte, maxMessageSize)
 	defer func() {
 		if err := recover(); nil != err {
-			zzlog.Errorf("handleListenedConn except, err:%v\n", err)
+			zzlog.Errorw("handleListenedConn except", zap.Error(err))
 		}
 
 		if nil != conn {
-			zzlog.Errorf("Address %s: Client closed connection\n", conn.RemoteAddr())
+			zzlog.Errorw("Client closed connection", zap.String("Address", conn.RemoteAddr().String()))
 			conn.Close()
 		}
 
@@ -132,10 +133,15 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 		if headerReadError != nil {
 			if headerReadError != io.EOF {
 				// Log the error we got from the call to read
-				zzlog.Errorf("Error when trying to read from address %s. Tried to read %d, actually read %d. Underlying error: %s\n", conn.RemoteAddr(), headerByteSize, totalHeaderBytesRead, headerReadError)
+				zzlog.Errorw("Error when trying to read",
+					zap.String("address", conn.RemoteAddr().String()),
+					zap.Int64("headerByteSize", headerByteSize),
+					zap.Int64("totalHeaderBytesRead", totalHeaderBytesRead),
+					zap.Error(headerReadError))
 			} else {
 				// Client closed the conn
-				zzlog.Errorf("Address %s: Client closed connection during header read. Underlying error: %s\n", conn.RemoteAddr(), headerReadError)
+				zzlog.Errorw("Client closed connection during header read. Underlying error",
+					zap.String("address", conn.RemoteAddr().String()), zap.Error(headerReadError))
 			}
 
 			return
@@ -146,12 +152,15 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 		// Not sure what the correct way to handle these errors are. For now, bomb out
 		if bytesParsed == 0 {
 			// "Buffer too small"
-			zzlog.Errorf("Address %s: 0 Bytes parsed from header. Underlying error: %s\n", conn.RemoteAddr(), headerReadError)
-			conn.Close()
+			zzlog.Errorw("0 Bytes parsed from header. Underlying error",
+				zap.String("address", conn.RemoteAddr().String()), zap.Error(headerReadError))
+
 			return
 		} else if bytesParsed < 0 {
 			// "Buffer overflow"
-			zzlog.Errorf("Address %s: Buffer Less than zero bytes parsed from header. Underlying error: %s\n", conn.RemoteAddr(), headerReadError)
+			zzlog.Errorw("Buffer Less than zero bytes parsed from header. Underlying error",
+				zap.String("address", conn.RemoteAddr().String()), zap.Error(headerReadError))
+
 			return
 		}
 		var dataReadError error
@@ -167,10 +176,15 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 		if dataReadError != nil {
 			if dataReadError != io.EOF {
 				// log the error from the call to read
-				zzlog.Errorf("Address %s: Failure to read from connection. Was told to read %d by the header, actually read %d. Underlying error: %s\n", conn.RemoteAddr(), msgLength, totalDataBytesRead, dataReadError)
+				zzlog.Errorw("Failure to read from connection. ",
+					zap.String("address", conn.RemoteAddr().String(),
+						zap.Int64("msgLength", msgLength)),
+					zap.Int64("totalDataBytesRead", totalDataBytesRead),
+					zap.Error(dataReadError))
 			} else {
 				// The client wrote the header but closed the connection
-				zzlog.Errorf("Address %s: Client closed connection during data read. Underlying error: %s\n", conn.RemoteAddr(), dataReadError)
+				zzlog.Errorw("Client closed connection during data read. Underlying error",
+					zap.String("address", conn.RemoteAddr().String()), zap.Error(dataReadError))
 			}
 
 			return
@@ -185,7 +199,7 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 			go func(packet []byte) {
 				err := rcb(context.TODO(), conn, iMsgLength, packet)
 				if err != nil {
-					zzlog.Errorf("Error in Callback: %s\n", err)
+					zzlog.Errorw("Error in Callback", zap.Error(err))
 				}
 			}(packet)
 		}
@@ -228,7 +242,7 @@ func WriteToConnections(conn *net.TCPConn, packet []byte) (n int, err error) {
 	}
 
 	if nil == conn {
-		fmt.Println("WriteToConnections conn is nil")
+		zzlog.Warnln("WriteToConnections conn is nil")
 
 		return
 	}

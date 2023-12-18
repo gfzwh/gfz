@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gfz/zzlog"
 	"net"
 	"reflect"
 	"strconv"
@@ -110,10 +111,13 @@ func (this *Server) recv(ctx context.Context, client *net.TCPConn, iMsgLength in
 
 	}
 
-	zzlog.Infof("Recv from client, SerialNumber:%d	req_number:%d	conns:%d\n", msg.SerialNumber, reqCount, this.conns)
 	defer func() {
 		this.decReq()
-		zzlog.Warnf("%s called ,cost %dms\n", item.name, time.Now().UnixMilli()-statAt)
+		zzlog.Debugw("Recv from client",
+			zap.Int64("SerialNumber", msg.SerialNumber),
+			zap.int64("reqCount", reqCount),
+			zap.int64("conns", this.conns),
+			zap.Int64("cost", time.Now().UnixMilli()-statAt))
 	}()
 
 	res := &proto.MessageResp{
@@ -225,7 +229,7 @@ func (s *Server) Run(opts ...HandlerOption) {
 		socket.Recv(s.recv),
 	)
 	if err != nil {
-		zzlog.Errorf("ListenTCP error {%v}\n", err)
+		zzlog.Errorw("ListenTCP error", zap.Error(err))
 
 		return
 	}
