@@ -3,14 +3,14 @@ package client
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"time"
 
 	"github.com/gfzwh/gfz/common"
 	"github.com/gfzwh/gfz/proto"
-	"github.com/gfzwh/gfz/tcp"
+	"github.com/gfzwh/gfz/socket"
 	"github.com/gfzwh/gfz/zzlog"
+	"go.uber.org/zap"
 )
 
 type Request struct {
@@ -34,7 +34,7 @@ func (c *Client) NewRequest(name string, m string, in Message) *Request {
 func (c *Client) call(conn *net.TCPConn, rpc string, packet []byte, opts ...CallOption) ([]byte, error) {
 	startAt := time.Now().UnixMilli()
 	defer func() {
-		zzlog.Warnf("%s call cost %dms\n", rpc, time.Now().UnixMilli()-startAt)
+		zzlog.Warnw("call cost", zap.Any(rpc, time.Now().UnixMilli()-startAt))
 	}()
 	opt := initOpt(opts...)
 
@@ -64,7 +64,7 @@ func (c *Client) call(conn *net.TCPConn, rpc string, packet []byte, opts ...Call
 	Pools().WaitReq[serialNumber] = cc
 	Pools().wrw.Unlock()
 
-	_, err = tcp.WriteToConnections(conn, req)
+	_, err = socket.WriteToConnections(conn, req)
 	if nil != err {
 		return nil, err
 	}
@@ -98,8 +98,6 @@ func (c *Client) Call(ctx context.Context, req *Request, in Message, opts ...Cal
 
 	conn, err := Pools().connectByName(req.name)
 	if nil != err {
-		fmt.Printf("Client.Call err: %v\n", err)
-
 		return nil, err
 	}
 	c.t = conn

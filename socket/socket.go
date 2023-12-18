@@ -1,8 +1,7 @@
-package tcp
+package socket
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -11,65 +10,31 @@ import (
 	"github.com/gfzwh/gfz/zzlog"
 )
 
-var (
+const (
 	DefaultMaxMessageSize = int(1 << 20)
 )
 
-func byteArrayToUInt32(bytes []byte) (result int64, bytesRead int) {
-	return binary.Varint(bytes)
-}
-
-func intToByteArray(value int64, bufferSize int) []byte {
-	toWriteLen := make([]byte, bufferSize)
-	binary.PutVarint(toWriteLen, value)
-	return toWriteLen
-}
-
-type ListenCb func(context.Context, *net.TCPListener) error
-type RecvCb func(context.Context, *net.TCPConn, int, []byte) error
-type ConnectCb func(context.Context, *net.TCPConn) error
-type CloseCb func(context.Context, *net.TCPConn) error
-type CmdCb func(context.Context, *net.TCPConn, string) error
-
 type TCPListener struct {
 	socket          *net.TCPListener
-	address         string
-	headerByteSize  int
-	maxMessageSize  int
-	listenCb        ListenCb
-	connectCb       ConnectCb
-	recvCb          RecvCb
-	closeCb         CloseCb
 	shutdownChannel chan struct{}
 	shutdownGroup   *sync.WaitGroup
+
+	opts *options
 }
 
-type TCPListenerConfig struct {
-	MaxMessageSize int
-	EnableLogging  bool
-	Address        string
-	ListenCb       ListenCb
-	ConnectCb      ConnectCb
-	RecvCb         RecvCb
-	CloseCb        CloseCb
-}
-
-func ListenTCP(cfg TCPListenerConfig) (*TCPListener, error) {
-	maxMessageSize := DefaultMaxMessageSize
-	// 0 is the default, and the message must be atleast 1 byte large
-	if cfg.MaxMessageSize != 0 {
-		maxMessageSize = cfg.MaxMessageSize
+func ListenTCP(opts ...SocketOption) (*TCPListener, error) {
+	cfg := initOpts(opts...)
+	if cfg.maxMessageSize == 0 {
+		cfg.maxMessageSize = int32(DefaultMaxMessageSize)
 	}
+	if cfg.headerByteSize == 0 {
+		cfg.headerByteSize = 4
+	}
+
 	btl := &TCPListener{
-		maxMessageSize:  maxMessageSize,
-		headerByteSize:  4, // 4byte(int32)
-		listenCb:        cfg.ListenCb,
-		connectCb:       cfg.ConnectCb,
-		recvCb:          cfg.RecvCb,
-		closeCb:         cfg.CloseCb,
 		shutdownChannel: make(chan struct{}),
-		address:         cfg.Address,
 		shutdownGroup:   &sync.WaitGroup{},
+		opts:            cfg,
 	}
 
 	if err := btl.openSocket(); err != nil {
@@ -90,17 +55,17 @@ func (btl *TCPListener) blockListen() error {
 			}
 		} else {
 
-			if nil != btl.connectCb {
-				btl.connectCb(context.TODO(), conn)
+			if nil != btl.opts.connect {
+				btl.opts.connect(context.TODO(), conn)
 			}
 
-			go handleListenedConn(conn, btl.headerByteSize, btl.maxMessageSize, btl.recvCb, btl.closeCb)
+			go handleListenedConn(conn, int(btl.opts.headerByteSize), int(btl.opts.maxMessageSize), btl.opts.recv, btl.opts.closed)
 		}
 	}
 }
 
 func (btl *TCPListener) openSocket() error {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", btl.address)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", btl.opts.address)
 	if err != nil {
 		return err
 	}
@@ -109,8 +74,8 @@ func (btl *TCPListener) openSocket() error {
 		return err
 	}
 
-	if nil != btl.listenCb {
-		btl.listenCb(context.TODO(), receiveSocket)
+	if nil != btl.opts.listen {
+		btl.opts.listen(context.TODO(), receiveSocket)
 	}
 
 	btl.socket = receiveSocket
@@ -134,7 +99,7 @@ func (btl *TCPListener) StartListeningAsync() error {
 	return err
 }
 
-func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize int, rcb RecvCb, ccb CloseCb) {
+func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize int, rcb recv, ccb closed) {
 	headerBuffer := make([]byte, headerByteSize)
 	dataBuffer := make([]byte, maxMessageSize)
 	defer func() {
@@ -251,7 +216,7 @@ func readFromConnection(reader *net.TCPConn, buffer []byte) (int, error) {
 }
 
 // 读取数据
-func ReadFromTcp(conn *net.TCPConn, rcb RecvCb, ccb CloseCb) (err error) {
+func ReadFromTcp(conn *net.TCPConn, rcb recv, ccb closed) (err error) {
 	handleListenedConn(conn, 4, DefaultMaxMessageSize, rcb, ccb)
 
 	return

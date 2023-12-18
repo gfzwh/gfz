@@ -16,8 +16,9 @@ import (
 	"github.com/gfzwh/gfz/common"
 	"github.com/gfzwh/gfz/proto"
 	"github.com/gfzwh/gfz/registry"
-	"github.com/gfzwh/gfz/tcp"
+	"github.com/gfzwh/gfz/socket"
 	"github.com/gfzwh/gfz/zzlog"
+	"go.uber.org/zap"
 
 	"github.com/StabbyCutyou/buffstreams"
 )
@@ -63,7 +64,7 @@ func (this *Server) decConn() int64 {
 	return atomic.AddInt64(&this.conns, -1)
 }
 
-func (s *Server) listenCb(ctx context.Context, tcp *net.TCPListener) error {
+func (s *Server) listen(ctx context.Context, tcp *net.TCPListener) error {
 	s.register(tcp.Addr().String())
 	client.Pools().Registry(registry.NewRegistry(
 		registry.Url(s.registry.Url()),
@@ -71,27 +72,26 @@ func (s *Server) listenCb(ctx context.Context, tcp *net.TCPListener) error {
 		registry.Env(s.registry.Env()),
 		registry.Host(s.registry.Host())))
 
-	zzlog.Infof("LCallback ----------  addr:%s\n", tcp.Addr().String())
-
+	zzlog.Infow("LCallback ---------- ", zap.String("addr", tcp.Addr().String()))
 	return nil
 }
 
-func (this *Server) connectCb(ctx context.Context, tcp *net.TCPConn) error {
+func (this *Server) connect(ctx context.Context, tcp *net.TCPConn) error {
 	this.incConn()
-	zzlog.Infof("ConnectCb ---------- from: %s\n", tcp.RemoteAddr())
+	zzlog.Infow("ConnectCb ---------- ", zap.String("from", tcp.RemoteAddr().String()))
 
 	return nil
 }
 
-func (this *Server) closeCb(ctx context.Context, tcp *net.TCPConn) error {
+func (this *Server) closed(ctx context.Context, tcp *net.TCPConn) error {
 	this.decConn()
-	zzlog.Infof("CloseCb ---------- from: %s\n", tcp.RemoteAddr())
+	zzlog.Infow("CloseCb ---------- ", zap.String("from", tcp.RemoteAddr().String()))
 
 	return nil
 }
 
 // method_num|data
-func (this *Server) recvCb(ctx context.Context, client *net.TCPConn, iMsgLength int, data []byte) error {
+func (this *Server) recv(ctx context.Context, client *net.TCPConn, iMsgLength int, data []byte) error {
 	statAt := time.Now().UnixMilli()
 
 	msg := &proto.MessageReq{}
@@ -147,7 +147,7 @@ func (this *Server) recvCb(ctx context.Context, client *net.TCPConn, iMsgLength 
 		return err
 	}
 
-	tcp.WriteToConnections(client, packet)
+	socket.WriteToConnections(client, packet)
 	return nil
 }
 
@@ -215,17 +215,15 @@ func (s *Server) Run(opts ...HandlerOption) {
 		o(config)
 	}
 
-	cfg := tcp.TCPListenerConfig{
-		MaxMessageSize: 1 << 20,
-		EnableLogging:  true,
-		Address:        buffstreams.FormatAddress(config.bind, strconv.Itoa(config.port)),
-		ListenCb:       s.listenCb,
-		ConnectCb:      s.connectCb,
-		CloseCb:        s.closeCb,
-		RecvCb:         s.recvCb,
-	}
-
-	btl, err := tcp.ListenTCP(cfg)
+	btl, err := socket.ListenTCP(
+		socket.MaxMessageSize(1<<20),
+		socket.EnableLogging(true),
+		socket.Address(buffstreams.FormatAddress(config.bind, strconv.Itoa(config.port))),
+		socket.Listen(s.listen),
+		socket.Connect(s.connect),
+		socket.Closed(s.closed),
+		socket.Recv(s.recv),
+	)
 	if err != nil {
 		zzlog.Errorf("ListenTCP error {%v}\n", err)
 
@@ -235,7 +233,7 @@ func (s *Server) Run(opts ...HandlerOption) {
 
 	err = btl.StartListeningAsync()
 	if nil != err {
-		zzlog.Errorf("StartListening error {%v}\n", err)
+		zzlog.Errorw("StartListening error ", zap.Error(err))
 
 		return
 	}

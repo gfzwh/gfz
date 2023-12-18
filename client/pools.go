@@ -10,8 +10,9 @@ import (
 	"github.com/gfzwh/gfz/common"
 	"github.com/gfzwh/gfz/proto"
 	"github.com/gfzwh/gfz/registry"
-	"github.com/gfzwh/gfz/tcp"
+	"github.com/gfzwh/gfz/socket"
 	"github.com/gfzwh/gfz/zzlog"
+	"go.uber.org/zap"
 )
 
 type pools struct {
@@ -55,7 +56,7 @@ func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
 		return
 	}
 
-	go tcp.ReadFromTcp(t, func(ctx context.Context, t *net.TCPConn, i int, b []byte) error {
+	go socket.ReadFromTcp(t, func(ctx context.Context, t *net.TCPConn, i int, b []byte) error {
 		// 接收响应，并分发
 		msg := &proto.MessageResp{}
 		err := msg.Unmarshal(b)
@@ -72,7 +73,7 @@ func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
 			cc.Ch <- 0
 		}
 		Pools().wrw.RUnlock()
-		zzlog.Infof("Recv from server, SerialNumber: %d\n", serialNumber)
+		zzlog.Infow("Recv from server", zap.Int64("SerialNumber", serialNumber))
 
 		return nil
 	}, func(ctx context.Context, t *net.TCPConn) error {
@@ -115,7 +116,7 @@ func (p *pools) connectByName(svrname string) (t *net.TCPConn, err error) {
 			name := common.GenUid()
 			conn, err := p.connect(svrname, name)
 			if nil != err {
-				zzlog.Errorf("pools.connect error, err:%v\n", err)
+				zzlog.Errorw("pools.connect error", zap.Error(err))
 
 				return nil
 			}

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -163,7 +162,7 @@ func (this *HttpClient) Put() (r []byte, err error) {
 	}
 
 	defer res.Body.Close()
-	r, err = ioutil.ReadAll(res.Body)
+	r, err = io.ReadAll(res.Body)
 
 	return
 }
@@ -189,7 +188,7 @@ func (this *HttpClient) Delete() (r []byte, err error) {
 	}
 
 	defer res.Body.Close()
-	r, err = ioutil.ReadAll(res.Body)
+	r, err = io.ReadAll(res.Body)
 
 	return
 }
@@ -215,7 +214,7 @@ func (this *HttpClient) Post() (r []byte, err error) {
 	}
 
 	defer res.Body.Close()
-	r, err = ioutil.ReadAll(res.Body)
+	r, err = io.ReadAll(res.Body)
 
 	return
 }
