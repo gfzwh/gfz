@@ -14,6 +14,14 @@ const (
 	DefaultMaxMessageSize = int(1 << 20)
 )
 
+type Request struct {
+	net.TCPConn
+}
+
+type Response struct {
+	net.TCPConn
+}
+
 type TCPListener struct {
 	socket          *net.TCPListener
 	shutdownChannel chan struct{}
