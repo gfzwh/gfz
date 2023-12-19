@@ -48,6 +48,14 @@ func NewServer(registry *registry.Registry, n *node) *Server {
 	}
 }
 
+func Limit(ctx context.Context) {
+
+}
+
+func (this *Server) Use() {
+
+}
+
 func (this *Server) incReq() int64 {
 	return atomic.AddInt64(&this.reqs, 1)
 }
@@ -93,7 +101,6 @@ func (this *Server) closed(ctx context.Context, tcp *net.TCPConn) error {
 // method_num|data
 func (this *Server) recv(ctx context.Context, client *net.TCPConn, iMsgLength int, data []byte) error {
 	statAt := time.Now().UnixMilli()
-
 	msg := &proto.MessageReq{}
 	err := msg.Unmarshal(data)
 	if nil != err {
@@ -106,23 +113,28 @@ func (this *Server) recv(ctx context.Context, client *net.TCPConn, iMsgLength in
 	this.rw.RUnlock()
 
 	reqCount := this.incReq()
+	ctx = context.WithValue(ctx, "reqCount", reqCount)
+
 	defer func() {
 		reqCount = this.decReq()
 		zzlog.Debugw("Recv from client",
-			zap.Int64("SerialNumber", msg.SerialNumber),
+			zap.Int64("Sid", msg.Sid),
 			zap.Int64("reqCount", reqCount),
 			zap.Int64("conns", this.conns),
 			zap.String("cost", fmt.Sprintf("%dms", time.Now().UnixMilli()-statAt)))
 	}()
 
 	res := &proto.MessageResp{
-		SerialNumber: msg.SerialNumber,
-		Headers:      make(map[string]string),
+		Sid:     msg.Sid,
+		Headers: msg.Headers,
+		Code:    0,
 	}
 
 	if common.ValueEmpty(item.call) {
 		return errors.New("Not support called!")
 	}
+
+	// 处理流量限制、熔段
 
 	params := make([]reflect.Value, 2)
 	params[0] = reflect.ValueOf(context.TODO())
@@ -130,7 +142,7 @@ func (this *Server) recv(ctx context.Context, client *net.TCPConn, iMsgLength in
 	ret := item.call.Call(params)
 
 	// 不需要响应的直接返回
-	if 0 == msg.SerialNumber {
+	if 0 == msg.Sid {
 		return nil
 	}
 

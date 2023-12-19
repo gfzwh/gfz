@@ -4,12 +4,13 @@ package proto;
 message MessageReq {
     int64               sid             = 1;
     int64               rpcId           = 2;
-    map<string,string>  headers         = 3;
+    map<string,string>  headers         = 3; // 请求头部信息会往下传递，以及返回
     bytes               packet          = 4;
 }
 
 message MessageResp {
     int64               sid             = 1;
-    map<string,string>  headers         = 2;
-    bytes               packet          = 3;
+    map<string,string>  headers         = 2; // rpc调用的底层信息
+    int32               code            = 3; // rpc调用的底层状态码
+    bytes               packet          = 4;
 }

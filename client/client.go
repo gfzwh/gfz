@@ -38,16 +38,16 @@ func (c *Client) call(conn *net.TCPConn, rpc string, packet []byte, opts ...Call
 	}()
 
 	opt := initOpt(opts...)
-	serialNumber := serialNumber()
+	Sid := Sid()
 	if opt.onlyCall {
-		serialNumber = 0
+		Sid = 0
 	}
 
 	data := &proto.MessageReq{
-		SerialNumber: serialNumber,
-		Headers:      make(map[string]string),
-		RpcId:        int64(common.GenMethodNum(rpc)),
-		Packet:       packet,
+		Sid:     Sid,
+		Headers: make(map[string]string),
+		RpcId:   int64(common.GenMethodNum(rpc)),
+		Packet:  packet,
 	}
 
 	req, err := data.Marshal()
@@ -61,7 +61,7 @@ func (c *Client) call(conn *net.TCPConn, rpc string, packet []byte, opts ...Call
 	}
 
 	Pools().wrw.Lock()
-	Pools().WaitReq[serialNumber] = cc
+	Pools().WaitReq[Sid] = cc
 	Pools().wrw.Unlock()
 
 	_, err = socket.WriteToConnections(conn, req)
@@ -80,8 +80,8 @@ func (c *Client) call(conn *net.TCPConn, rpc string, packet []byte, opts ...Call
 
 	case <-waitCh:
 		Pools().wrw.RLock()
-		packet = Pools().WaitReq[serialNumber].Packet
-		Pools().WaitReq[serialNumber].Packet = nil
+		packet = Pools().WaitReq[Sid].Packet
+		Pools().WaitReq[Sid].Packet = nil
 		Pools().wrw.RUnlock()
 
 		break

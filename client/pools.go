@@ -64,16 +64,22 @@ func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
 			return nil
 		}
 
+		if 0 != msg.Code {
+			zzlog.Debugw("Recv from server fail", zap.Int32("code", msg.Code), zap.Any("headers", msg.Headers))
+
+			return nil
+		}
+
 		// 异步接收到响应
-		serialNumber := msg.SerialNumber
+		Sid := msg.Sid
 		Pools().wrw.RLock()
-		if _, ok := Pools().WaitReq[serialNumber]; ok {
-			cc := Pools().WaitReq[serialNumber]
+		if _, ok := Pools().WaitReq[Sid]; ok {
+			cc := Pools().WaitReq[Sid]
 			cc.Packet = msg.Packet
 			cc.Ch <- 0
 		}
 		Pools().wrw.RUnlock()
-		zzlog.Debugw("Recv from server", zap.Int64("SerialNumber", serialNumber))
+		zzlog.Debugw("Recv from server", zap.Int64("Sid", Sid))
 
 		return nil
 	}, func(ctx context.Context, t *net.TCPConn) error {

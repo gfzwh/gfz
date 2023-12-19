@@ -12,7 +12,7 @@ const (
 
 var counter int64
 
-func serialNumber() int64 {
+func Sid() int64 {
 	return atomic.AddInt64(&counter, 1)
 }
 
