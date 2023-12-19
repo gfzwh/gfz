@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gfz/zzlog"
 	"net"
 	"reflect"
 	"strconv"
@@ -73,20 +72,20 @@ func (s *Server) listen(ctx context.Context, tcp *net.TCPListener) error {
 		registry.Env(s.registry.Env()),
 		registry.Host(s.registry.Host())))
 
-	zzlog.Infow("LCallback ---------- ", zap.String("addr", tcp.Addr().String()))
+	zzlog.Infow("Server.listen called", zap.String("addr", tcp.Addr().String()))
 	return nil
 }
 
 func (this *Server) connect(ctx context.Context, tcp *net.TCPConn) error {
 	this.incConn()
-	zzlog.Infow("ConnectCb ---------- ", zap.String("from", tcp.RemoteAddr().String()))
+	zzlog.Infow("Server.connect called", zap.String("from", tcp.RemoteAddr().String()))
 
 	return nil
 }
 
 func (this *Server) closed(ctx context.Context, tcp *net.TCPConn) error {
 	this.decConn()
-	zzlog.Infow("CloseCb ---------- ", zap.String("from", tcp.RemoteAddr().String()))
+	zzlog.Infow("Server.closed called", zap.String("from", tcp.RemoteAddr().String()))
 
 	return nil
 }
@@ -107,17 +106,13 @@ func (this *Server) recv(ctx context.Context, client *net.TCPConn, iMsgLength in
 	this.rw.RUnlock()
 
 	reqCount := this.incReq()
-	if 0 < reqCount {
-
-	}
-
 	defer func() {
-		this.decReq()
+		reqCount = this.decReq()
 		zzlog.Debugw("Recv from client",
 			zap.Int64("SerialNumber", msg.SerialNumber),
-			zap.int64("reqCount", reqCount),
-			zap.int64("conns", this.conns),
-			zap.Int64("cost", time.Now().UnixMilli()-statAt))
+			zap.Int64("reqCount", reqCount),
+			zap.Int64("conns", this.conns),
+			zap.String("cost", fmt.Sprintf("%dms", time.Now().UnixMilli()-statAt)))
 	}()
 
 	res := &proto.MessageResp{
@@ -174,6 +169,7 @@ func (s *Server) NewHandler(instance interface{}) error {
 			call: methodValue,
 			name: fmt.Sprintf("%s.%s", structName, method.Name),
 		}
+
 		s.rw.Unlock()
 	}
 
@@ -237,7 +233,7 @@ func (s *Server) Run(opts ...HandlerOption) {
 
 	err = btl.StartListeningAsync()
 	if nil != err {
-		zzlog.Errorw("StartListening error ", zap.Error(err))
+		zzlog.Errorw("StartListening error", zap.Error(err))
 
 		return
 	}

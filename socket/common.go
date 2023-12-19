@@ -16,6 +16,7 @@ func intToByteArray(value int64, bufferSize int) []byte {
 	return toWriteLen
 }
 
+// socket调用的方法
 type listen func(context.Context, *net.TCPListener) error
 type connect func(context.Context, *net.TCPConn) error
 type closed func(context.Context, *net.TCPConn) error

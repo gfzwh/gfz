@@ -2,7 +2,6 @@ package socket
 
 import (
 	"context"
-	"gfz/zzlog"
 	"io"
 	"net"
 	"sync"
@@ -105,7 +104,7 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 	dataBuffer := make([]byte, maxMessageSize)
 	defer func() {
 		if err := recover(); nil != err {
-			zzlog.Errorw("handleListenedConn except", zap.Error(err))
+			zzlog.Errorw("handleListenedConn except", zap.Error(err.(error)))
 		}
 
 		if nil != conn {
@@ -135,8 +134,8 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 				// Log the error we got from the call to read
 				zzlog.Errorw("Error when trying to read",
 					zap.String("address", conn.RemoteAddr().String()),
-					zap.Int64("headerByteSize", headerByteSize),
-					zap.Int64("totalHeaderBytesRead", totalHeaderBytesRead),
+					zap.Int("headerByteSize", headerByteSize),
+					zap.Int("totalHeaderBytesRead", totalHeaderBytesRead),
 					zap.Error(headerReadError))
 			} else {
 				// Client closed the conn
@@ -177,9 +176,9 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 			if dataReadError != io.EOF {
 				// log the error from the call to read
 				zzlog.Errorw("Failure to read from connection. ",
-					zap.String("address", conn.RemoteAddr().String(),
-						zap.Int64("msgLength", msgLength)),
-					zap.Int64("totalDataBytesRead", totalDataBytesRead),
+					zap.String("address", conn.RemoteAddr().String()),
+					zap.Int64("msgLength", msgLength),
+					zap.Int("totalDataBytesRead", totalDataBytesRead),
 					zap.Error(dataReadError))
 			} else {
 				// The client wrote the header but closed the connection
@@ -199,7 +198,7 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 			go func(packet []byte) {
 				err := rcb(context.TODO(), conn, iMsgLength, packet)
 				if err != nil {
-					zzlog.Errorw("Error in Callback", zap.Error(err))
+					zzlog.Errorw("Socket recv.Callback error", zap.Error(err))
 				}
 			}(packet)
 		}

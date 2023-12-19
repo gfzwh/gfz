@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/gfzwh/gfz/zzlog"
 
 	"github.com/bilibili/discovery/naming"
@@ -114,7 +116,10 @@ func (r *Registry) getNode(nodes []*naming.Instance) (node *naming.Instance) {
 func (r *Registry) GetNodeInfo(svrname, zone, env, host string) (addr string, err error) {
 	// env=prod&hostname=fgz-discovery 这两个变量是discovery中的env信息
 	url := "%s/discovery/polls?appid=infra.discovery&appid=%s&env=dev-0.0.1&hostname=fgz-discovery&latest_timestamp=%d&latest_timestamp=0"
-	response, err := http.Get(fmt.Sprintf(url, r.opts.url, svrname, time.Now().UnixNano()-1000))
+	url = fmt.Sprintf(url, r.opts.url, svrname, time.Now().UnixNano()-1000)
+
+	zzlog.Debugw("discovery address", zap.String("url", url))
+	response, err := http.Get(url)
 	if err != nil {
 		return
 	}
@@ -153,7 +158,7 @@ func (r *Registry) GetNodeInfo(svrname, zone, env, host string) (addr string, er
 	}
 
 	data, _ := json.Marshal(node)
-	zzlog.Debug("node info: %s\n", string(data))
+	zzlog.Debugw("node info", zap.String("nodes", string(data)))
 	addr = addr[(aindex + len("tcp://")):]
 	return
 }

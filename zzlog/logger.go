@@ -9,19 +9,15 @@ import (
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
-func init() {
-	logger, _ := zap.NewProduction()
-	defaultLogger = logger.Sugar()
-
-	return
-}
-
 var (
 	defaultLogger *zap.SugaredLogger
 )
 
 func init() {
+	logger, _ := zap.NewProduction()
+	defaultLogger = logger.Sugar()
 
+	return
 }
 
 func Init(opts ...LoggerOption) {
