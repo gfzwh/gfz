@@ -7,6 +7,7 @@ import (
 )
 
 type Request struct {
+	*net.TCPListener
 	*net.TCPConn
 	length int
 	packet []byte
@@ -35,8 +36,9 @@ func intToByteArray(value int64, bufferSize int) []byte {
 }
 
 // socket调用的方法
-type listen func(context.Context, *net.TCPListener) error
-type connect func(context.Context, *net.TCPConn) error
-type closed func(context.Context, *net.TCPConn) error
+type listen func(context.Context, *Request) error
+type connect func(context.Context, *Request) error
+type closed func(context.Context, *Request) error
 type recv func(context.Context, *Request, *Response) error
+
 type CmdFunc func(context.Context, *net.TCPConn, string) error

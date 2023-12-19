@@ -56,7 +56,7 @@ func (btl *TCPListener) blockListen() error {
 		} else {
 
 			if nil != btl.opts.connect {
-				btl.opts.connect(context.TODO(), conn)
+				btl.opts.connect(context.TODO(), &Request{TCPConn: conn})
 			}
 
 			go handleListenedConn(conn, int(btl.opts.headerByteSize), int(btl.opts.maxMessageSize), btl.opts.recv, btl.opts.closed)
@@ -75,7 +75,7 @@ func (btl *TCPListener) openSocket() error {
 	}
 
 	if nil != btl.opts.listen {
-		btl.opts.listen(context.TODO(), receiveSocket)
+		btl.opts.listen(context.TODO(), &Request{TCPListener: receiveSocket})
 	}
 
 	btl.socket = receiveSocket
@@ -114,7 +114,7 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 		}
 
 		if nil != ccb {
-			ccb(context.TODO(), conn)
+			ccb(context.TODO(), &Request{TCPConn: conn})
 		}
 
 		return
@@ -240,34 +240,6 @@ func readFromConnection(reader *net.TCPConn, buffer []byte) (int, error) {
 func ReadFromTcp(conn *net.TCPConn, rcb recv, ccb closed) (err error) {
 	handleListenedConn(conn, 4, DefaultMaxMessageSize, rcb, ccb)
 
-	return
-}
-
-func WriteToConnections(conn *net.TCPConn, packet []byte) (n int, err error) {
-	if 0 == len(packet) {
-		return
-	}
-
-	if nil == conn {
-		zzlog.Warnln("WriteToConnections conn is nil")
-
-		return
-	}
-
-	msgLenHeader := intToByteArray(int64(len(packet)), 4)
-	toWrite := append(msgLenHeader, packet...)
-
-	toWriteLen := len(toWrite)
-	var writeError error
-	var totalBytesWritten = 0
-	var bytesWritten = 0
-	for totalBytesWritten < toWriteLen && writeError == nil {
-		bytesWritten, writeError = conn.Write(toWrite[totalBytesWritten:])
-		totalBytesWritten += bytesWritten
-	}
-
-	err = writeError
-	n = totalBytesWritten
 	return
 }
 

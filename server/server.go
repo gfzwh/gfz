@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"reflect"
 	"strconv"
 	"sync"
@@ -72,28 +71,28 @@ func (this *Server) decConn() int64 {
 	return atomic.AddInt64(&this.conns, -1)
 }
 
-func (s *Server) listen(ctx context.Context, tcp *net.TCPListener) error {
-	s.register(tcp.Addr().String())
+func (s *Server) listen(ctx context.Context, req *socket.Request) error {
+	s.register(req.Addr().String())
 	client.Pools().Registry(registry.NewRegistry(
 		registry.Url(s.registry.Url()),
 		registry.Zone(s.registry.Zone()),
 		registry.Env(s.registry.Env()),
 		registry.Host(s.registry.Host())))
 
-	zzlog.Infow("Server.listen called", zap.String("addr", tcp.Addr().String()))
+	zzlog.Infow("Server.listen called", zap.String("addr", req.Addr().String()))
 	return nil
 }
 
-func (this *Server) connect(ctx context.Context, tcp *net.TCPConn) error {
+func (this *Server) connect(ctx context.Context, req *socket.Request) error {
 	this.incConn()
-	zzlog.Infow("Server.connect called", zap.String("from", tcp.RemoteAddr().String()))
+	zzlog.Infow("Server.connect called", zap.String("from", req.RemoteAddr().String()))
 
 	return nil
 }
 
-func (this *Server) closed(ctx context.Context, tcp *net.TCPConn) error {
+func (this *Server) closed(ctx context.Context, req *socket.Request) error {
 	this.decConn()
-	zzlog.Infow("Server.closed called", zap.String("from", tcp.RemoteAddr().String()))
+	zzlog.Infow("Server.closed called", zap.String("from", req.RemoteAddr().String()))
 
 	return nil
 }
