@@ -109,6 +109,7 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 
 		if nil != conn {
 			zzlog.Errorw("Client closed connection", zap.String("Address", conn.RemoteAddr().String()))
+
 			conn.Close()
 		}
 

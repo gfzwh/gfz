@@ -36,8 +36,8 @@ func (c *Client) call(conn *net.TCPConn, rpc string, packet []byte, opts ...Call
 	defer func() {
 		zzlog.Warnw("call cost", zap.Any(rpc, time.Now().UnixMilli()-startAt))
 	}()
-	opt := initOpt(opts...)
 
+	opt := initOpt(opts...)
 	serialNumber := serialNumber()
 	if opt.onlyCall {
 		serialNumber = 0

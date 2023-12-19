@@ -159,6 +159,7 @@ func (r *Registry) GetNodeInfo(svrname, zone, env, host string) (addr string, er
 
 	data, _ := json.Marshal(node)
 	zzlog.Debugw("node info", zap.String("nodes", string(data)))
+
 	addr = addr[(aindex + len("tcp://")):]
 	return
 }

@@ -11,6 +11,5 @@ message MessageReq {
 message MessageResp {
     int64               sid             = 1;
     map<string,string>  headers         = 2;
-    int64               code            = 3;
-    bytes               packet          = 4;
+    bytes               packet          = 3;
 }

@@ -73,7 +73,7 @@ func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
 			cc.Ch <- 0
 		}
 		Pools().wrw.RUnlock()
-		zzlog.Infow("Recv from server", zap.Int64("SerialNumber", serialNumber))
+		zzlog.Debugw("Recv from server", zap.Int64("SerialNumber", serialNumber))
 
 		return nil
 	}, func(ctx context.Context, t *net.TCPConn) error {
