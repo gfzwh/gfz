@@ -56,10 +56,10 @@ func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
 		return
 	}
 
-	go socket.ReadFromTcp(t, func(ctx context.Context, t *net.TCPConn, i int, b []byte) error {
+	go socket.ReadFromTcp(t, func(ctx context.Context, req *socket.Request, r *socket.Response) error {
 		// 接收响应，并分发
 		msg := &proto.MessageResp{}
-		err := msg.Unmarshal(b)
+		err := msg.Unmarshal(req.Data())
 		if nil != err {
 			return nil
 		}
@@ -112,7 +112,7 @@ func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
 	return
 }
 
-func (p *pools) connectByName(svrname string) (t *net.TCPConn, err error) {
+func (p *pools) connectByName(svrname string) (t *socket.Response, err error) {
 	p.rw.Lock()
 	defer p.rw.Unlock()
 
@@ -152,6 +152,8 @@ func (p *pools) connectByName(svrname string) (t *net.TCPConn, err error) {
 		p.clients[svrname] = append(p.clients[svrname], clients...)
 	}
 
-	t = p.clients[svrname][0].T
+	t = &socket.Response{
+		TCPConn: p.clients[svrname][0].T,
+	}
 	return
 }

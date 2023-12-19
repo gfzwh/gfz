@@ -14,14 +14,6 @@ const (
 	DefaultMaxMessageSize = int(1 << 20)
 )
 
-type Request struct {
-	net.TCPConn
-}
-
-type Response struct {
-	net.TCPConn
-}
-
 type TCPListener struct {
 	socket          *net.TCPListener
 	shutdownChannel chan struct{}
@@ -205,7 +197,14 @@ func handleListenedConn(conn *net.TCPConn, headerByteSize int, maxMessageSize in
 			copy(packet, dataBuffer[:iMsgLength])
 
 			go func(packet []byte) {
-				err := rcb(context.TODO(), conn, iMsgLength, packet)
+				request := &Request{
+					TCPConn: conn,
+					length:  iMsgLength,
+					packet:  packet,
+				}
+				err := rcb(context.TODO(), request, &Response{
+					TCPConn: conn,
+				})
 				if err != nil {
 					zzlog.Errorw("Socket recv.Callback error", zap.Error(err))
 				}
@@ -264,6 +263,34 @@ func WriteToConnections(conn *net.TCPConn, packet []byte) (n int, err error) {
 	var bytesWritten = 0
 	for totalBytesWritten < toWriteLen && writeError == nil {
 		bytesWritten, writeError = conn.Write(toWrite[totalBytesWritten:])
+		totalBytesWritten += bytesWritten
+	}
+
+	err = writeError
+	n = totalBytesWritten
+	return
+}
+
+func (r *Response) Write(packet []byte) (n int, err error) {
+	if 0 == len(packet) {
+		return
+	}
+
+	if nil == r.TCPConn {
+		zzlog.Warnln("WriteToConnections conn is nil")
+
+		return
+	}
+
+	msgLenHeader := intToByteArray(int64(len(packet)), 4)
+	toWrite := append(msgLenHeader, packet...)
+
+	toWriteLen := len(toWrite)
+	var writeError error
+	var totalBytesWritten = 0
+	var bytesWritten = 0
+	for totalBytesWritten < toWriteLen && writeError == nil {
+		bytesWritten, writeError = r.TCPConn.Write(toWrite[totalBytesWritten:])
 		totalBytesWritten += bytesWritten
 	}
 

@@ -99,10 +99,10 @@ func (this *Server) closed(ctx context.Context, tcp *net.TCPConn) error {
 }
 
 // method_num|data
-func (this *Server) recv(ctx context.Context, client *net.TCPConn, iMsgLength int, data []byte) error {
+func (this *Server) recv(ctx context.Context, request *socket.Request, response *socket.Response) error {
 	statAt := time.Now().UnixMilli()
 	msg := &proto.MessageReq{}
-	err := msg.Unmarshal(data)
+	err := msg.Unmarshal(request.Data())
 	if nil != err {
 		return err
 	}
@@ -158,7 +158,7 @@ func (this *Server) recv(ctx context.Context, client *net.TCPConn, iMsgLength in
 		return err
 	}
 
-	socket.WriteToConnections(client, packet)
+	response.Write(packet)
 	return nil
 }
 

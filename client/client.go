@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -31,10 +32,10 @@ func (c *Client) NewRequest(name string, m string, in Message) *Request {
 	}
 }
 
-func (c *Client) call(conn *net.TCPConn, rpc string, packet []byte, opts ...CallOption) ([]byte, error) {
+func (c *Client) call(res *socket.Response, rpc string, packet []byte, opts ...CallOption) ([]byte, error) {
 	startAt := time.Now().UnixMilli()
 	defer func() {
-		zzlog.Warnw("call cost", zap.Any(rpc, time.Now().UnixMilli()-startAt))
+		zzlog.Warnw("call success", zap.Any(rpc, fmt.Sprintf("%dms", time.Now().UnixMilli()-startAt)))
 	}()
 
 	opt := initOpt(opts...)
@@ -64,7 +65,7 @@ func (c *Client) call(conn *net.TCPConn, rpc string, packet []byte, opts ...Call
 	Pools().WaitReq[Sid] = cc
 	Pools().wrw.Unlock()
 
-	_, err = socket.WriteToConnections(conn, req)
+	_, err = res.Write(req)
 	if nil != err {
 		return nil, err
 	}
@@ -96,12 +97,11 @@ func (c *Client) Call(ctx context.Context, req *Request, in Message, opts ...Cal
 		return nil, err
 	}
 
-	conn, err := Pools().connectByName(req.name)
+	response, err := Pools().connectByName(req.name)
 	if nil != err {
 		return nil, err
 	}
-	c.t = conn
 
-	res, err := c.call(c.t, req.m, packet, opts...)
+	res, err := c.call(response, req.m, packet, opts...)
 	return res, nil
 }
