@@ -176,7 +176,25 @@ func (s *Server) reply(response *socket.Response, packet *proto.MessageResp) (er
 	return nil
 }
 
-func (s *Server) NewHandler(instance interface{}) error {
+type RpcItem struct {
+	Call func(context.Context, []byte) ([]byte, error)
+	Name string
+}
+type callHandler struct {
+	calls map[uint64]*RpcItem
+}
+
+func CallHandler() *callHandler {
+	return &callHandler{
+		calls: make(map[uint64]*RpcItem),
+	}
+}
+
+func (c *callHandler) Handler(rid uint64, rpc *RpcItem) {
+	c.calls[rid] = rpc
+}
+
+func (s *Server) NewHandler(instance interface{}, handler interface{}) error {
 	t := reflect.TypeOf(instance)
 	value := reflect.ValueOf(instance)
 
