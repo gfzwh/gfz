@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -124,6 +125,9 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 	this.rw.RLock()
 	item = this.rpcMap[uint64(msg.GetRpcId())]
 	this.rw.RUnlock()
+	if nil == item.call {
+		return errors.New("func not exists!")
+	}
 
 	reqCount := this.incReq()
 	ctx = context.WithValue(ctx, "reqCount", reqCount)
@@ -144,50 +148,43 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 		Code:    0,
 	}
 
-	// if common.ValueEmpty(item.call) {
-	// 	return errors.New("Not support called!")
-	// }
-
 	// 处理流量限制、熔段
 
-	params := make([]reflect.Value, 2)
-	params[0] = reflect.ValueOf(context.TODO())
-	params[1] = reflect.ValueOf(msg.Packet)
 	ret, err := item.call(context.TODO(), msg.Packet)
+	if nil != err {
+		res.Code = 505
+		this.reply(response, res)
 
+		return err
+	}
 	// 不需要响应的直接返回
 	if 0 == msg.Sid {
 		return nil
 	}
 
 	res.Packet = ret
-	// res.Packet = ret[0].Interface().([]byte)
-	// outErr := ret[1].Interface()
-	// if nil != outErr {
-	// 	err = outErr.(error)
-	// 	return err
-	// }
+	return this.reply(response, res)
+}
 
-	packet, err := res.Marshal()
+func (s *Server) reply(response *socket.Response, packet *proto.MessageResp) (err error) {
+	res, err := packet.Marshal()
 	if nil != err {
 		return err
 	}
 
-	response.Write(packet)
+	response.Write(res)
 	return nil
 }
 
 func (s *Server) NewHandler(instance interface{}) error {
-	structName := reflect.TypeOf(instance).Name()
 	t := reflect.TypeOf(instance)
-
 	value := reflect.ValueOf(instance)
 
 	// 遍历结构体的方法
 	for i := 0; i < t.NumMethod(); i++ {
 		// 生成请求rid
 		method := t.Method(i)
-		rid := common.GenMethodNum(fmt.Sprintf("%s.%s", structName, method.Name))
+		rid := common.GenMethodNum(fmt.Sprintf("%s.%s", t.Name(), method.Name))
 
 		methodValue := value.Method(i)
 		result, ok := methodValue.Interface().(func(context.Context, []byte) ([]byte, error))
@@ -195,7 +192,7 @@ func (s *Server) NewHandler(instance interface{}) error {
 			s.rw.Lock()
 			s.rpcMap[rid] = RidItem{
 				call: result,
-				name: fmt.Sprintf("%s.%s", structName, method.Name),
+				name: fmt.Sprintf("%s.%s", t.Name(), method.Name),
 			}
 
 			s.rw.Unlock()
