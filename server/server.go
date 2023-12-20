@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 	"github.com/bilibili/discovery/naming"
 	"github.com/gfzwh/gfz/client"
 	"github.com/gfzwh/gfz/common"
+	"github.com/gfzwh/gfz/config"
 	"github.com/gfzwh/gfz/proto"
 	"github.com/gfzwh/gfz/registry"
 	"github.com/gfzwh/gfz/socket"
@@ -23,7 +23,7 @@ import (
 )
 
 type RidItem struct {
-	call reflect.Value
+	call func(context.Context, []byte) ([]byte, error)
 	name string
 }
 
@@ -33,26 +33,40 @@ type Server struct {
 	cancelFunc context.CancelFunc
 	registry   *registry.Registry
 	n          *node
+	sock       *socket.TCPListener
+	conf       *config.Gfz
 
 	reqs  int64 // 当前正在处理的请求
 	conns int64 // 当前连接的数量
 }
 
-func NewServer(registry *registry.Registry, n *node) *Server {
+func NewServer(conf_file string) *Server {
+	gfzF, err := config.XmlParse(conf_file)
+	if nil != err {
+		zzlog.Fatalf("XmlParse error", zap.Error(err))
+	}
+
+	zzlog.Init(
+		zzlog.WithLogName(gfzF.Log.LogFile),
+		zzlog.WithLevel(gfzF.Log.Level))
+
+	registry := registry.NewRegistry(
+		registry.Url(gfzF.Server.Url),
+		registry.Nodes(gfzF.Server.Nodes.Node),
+		registry.Zone(gfzF.Server.Zone),
+		registry.Host(gfzF.Server.Host),
+		registry.Env(gfzF.Server.Env))
+
+	n := Node(
+		Zone(gfzF.Server.Zone),
+		Name(gfzF.Server.S2sName))
+
 	return &Server{
 		rw:       sync.RWMutex{},
 		rpcMap:   make(map[uint64]RidItem),
 		registry: registry,
 		n:        n,
 	}
-}
-
-func Limit(ctx context.Context) {
-
-}
-
-func (this *Server) Use() {
-
 }
 
 func (this *Server) incReq() int64 {
@@ -101,7 +115,7 @@ func (this *Server) closed(ctx context.Context, req *socket.Request) error {
 func (this *Server) recv(ctx context.Context, request *socket.Request, response *socket.Response) error {
 	statAt := time.Now().UnixMilli()
 	msg := &proto.MessageReq{}
-	err := msg.Unmarshal(request.Data())
+	err := msg.Unmarshal(request.Packet())
 	if nil != err {
 		return err
 	}
@@ -118,6 +132,7 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 		reqCount = this.decReq()
 		zzlog.Debugw("Recv from client",
 			zap.Int64("Sid", msg.Sid),
+			zap.String("method", item.name),
 			zap.Int64("reqCount", reqCount),
 			zap.Int64("conns", this.conns),
 			zap.String("cost", fmt.Sprintf("%dms", time.Now().UnixMilli()-statAt)))
@@ -129,28 +144,29 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 		Code:    0,
 	}
 
-	if common.ValueEmpty(item.call) {
-		return errors.New("Not support called!")
-	}
+	// if common.ValueEmpty(item.call) {
+	// 	return errors.New("Not support called!")
+	// }
 
 	// 处理流量限制、熔段
 
 	params := make([]reflect.Value, 2)
 	params[0] = reflect.ValueOf(context.TODO())
 	params[1] = reflect.ValueOf(msg.Packet)
-	ret := item.call.Call(params)
+	ret, err := item.call(context.TODO(), msg.Packet)
 
 	// 不需要响应的直接返回
 	if 0 == msg.Sid {
 		return nil
 	}
 
-	res.Packet = ret[0].Interface().([]byte)
-	outErr := ret[1].Interface()
-	if nil != outErr {
-		err = outErr.(error)
-		return err
-	}
+	res.Packet = ret
+	// res.Packet = ret[0].Interface().([]byte)
+	// outErr := ret[1].Interface()
+	// if nil != outErr {
+	// 	err = outErr.(error)
+	// 	return err
+	// }
 
 	packet, err := res.Marshal()
 	if nil != err {
@@ -174,14 +190,17 @@ func (s *Server) NewHandler(instance interface{}) error {
 		rid := common.GenMethodNum(fmt.Sprintf("%s.%s", structName, method.Name))
 
 		methodValue := value.Method(i)
+		result, ok := methodValue.Interface().(func(context.Context, []byte) ([]byte, error))
+		if ok {
+			s.rw.Lock()
+			s.rpcMap[rid] = RidItem{
+				call: result,
+				name: fmt.Sprintf("%s.%s", structName, method.Name),
+			}
 
-		s.rw.Lock()
-		s.rpcMap[rid] = RidItem{
-			call: methodValue,
-			name: fmt.Sprintf("%s.%s", structName, method.Name),
+			s.rw.Unlock()
 		}
 
-		s.rw.Unlock()
 	}
 
 	return nil
@@ -214,6 +233,9 @@ func (s *Server) register(addr string) {
 
 func (s *Server) Release() {
 	s.cancelFunc()
+	if nil != s.sock {
+		s.sock.Close()
+	}
 }
 
 func (s *Server) Run(opts ...HandlerOption) {
@@ -240,7 +262,7 @@ func (s *Server) Run(opts ...HandlerOption) {
 
 		return
 	}
-	defer btl.Close()
+	s.sock = btl
 
 	err = btl.StartListeningAsync()
 	if nil != err {

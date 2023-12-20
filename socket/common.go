@@ -6,25 +6,6 @@ import (
 	"net"
 )
 
-type Request struct {
-	*net.TCPListener
-	*net.TCPConn
-	length int
-	packet []byte
-}
-
-func (r *Request) Data() []byte {
-	return r.packet
-}
-
-func (r *Request) Length() int {
-	return r.length
-}
-
-type Response struct {
-	*net.TCPConn
-}
-
 func byteArrayToUInt32(bytes []byte) (result int64, bytesRead int) {
 	return binary.Varint(bytes)
 }

@@ -59,7 +59,7 @@ func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
 	go socket.ReadFromTcp(t, func(ctx context.Context, req *socket.Request, r *socket.Response) error {
 		// 接收响应，并分发
 		msg := &proto.MessageResp{}
-		err := msg.Unmarshal(req.Data())
+		err := msg.Unmarshal(req.Packet())
 		if nil != err {
 			return nil
 		}
@@ -82,7 +82,7 @@ func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
 		zzlog.Debugw("Recv from server", zap.Int64("Sid", Sid))
 
 		return nil
-	}, func(ctx context.Context, t *net.TCPConn) error {
+	}, func(ctx context.Context, req *socket.Request) error {
 		index := -1
 
 		clients := make([]*client, 0)
