@@ -3,25 +3,11 @@
 
 # server的使用
 ```
-svr := server.NewServer(registry.NewRegistry(
-    registry.Url("http://127.0.0.1:7171"),
-    registry.Nodes([]string{"127.0.0.1:7171"}),
-    registry.Zone("guangzhou"),
-    registry.Env("dev-0.0.1")), server.Node(
-    server.Zone("guangzhou"),
-    server.Name("gfz-test")))
+svr := server.NewServer("./conf/gfz.xml")
 defer svr.Release()
 
-// 实例化服务接口句柄
-hdl := hander.ServerHandler()
-
-// 将服务域接口绑定
-err := protocol.RegisterXXXServiceHandler(svr, hdl)
-if nil != err {
-    zzlog.Fatalf("RegisterXXXServiceHandler error, errinfo:%v\n", err)
-
-    return
-}
+ctl := controller.Controller()
+protocol.RegisterUserServiceHandler(svr, ctl)
 svr.Run(server.Bind("127.0.0.1"), server.Port(8989))
 ```
 

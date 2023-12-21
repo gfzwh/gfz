@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
-	"reflect"
 	"time"
 )
 
+// 通过请求的方法信息，生成请求id
+//
+// @param	mothed 	方法信息
+// @return 请求id
 func GenRid(mothed string) uint64 {
 	h := fnv.New64a()
 	h.Write([]byte(mothed))
@@ -25,8 +28,4 @@ func GenUid() string {
 	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
 
 	return fmt.Sprintf("%d%d", timestamp, randomNumber)
-}
-
-func ValueEmpty(v reflect.Value) bool {
-	return v == reflect.Value{}
 }

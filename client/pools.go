@@ -148,7 +148,7 @@ func (p *pools) connectByName(svrname string) (t *socket.Response, err error) {
 
 		return
 	}
-	for i := len(p.clients[svrname]); i < CONNECT_POOLS_SIZE; i++ {
+	if len(p.clients[svrname]) < CONNECT_POOLS_SIZE {
 		clients := genCon(CONNECT_POOLS_SIZE - len(p.clients[svrname]))
 
 		p.clients[svrname] = append(p.clients[svrname], clients...)

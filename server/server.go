@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -25,7 +26,6 @@ type Server struct {
 	registry   *registry.Registry
 	n          *node
 	sock       *socket.TCPListener
-	conf       *config.Gfz
 	rpcHandler *rpcHandler
 
 	reqs  int64 // 当前正在处理的请求
@@ -33,25 +33,22 @@ type Server struct {
 }
 
 func NewServer(conf_file string) *Server {
-	gfzF, err := config.XmlParse(conf_file)
-	if nil != err {
-		zzlog.Fatalf("XmlParse error", zap.Error(err))
-	}
+	config.Init(conf_file)
 
 	zzlog.Init(
-		zzlog.WithLogName(gfzF.Log.LogFile),
-		zzlog.WithLevel(gfzF.Log.Level))
+		zzlog.WithLogName(config.Get("log", "log_file").String("")),
+		zzlog.WithLevel(config.Get("log", "level").String("info")))
 
 	registry := registry.NewRegistry(
-		registry.Url(gfzF.Server.Url),
-		registry.Nodes(gfzF.Server.Nodes.Node),
-		registry.Zone(gfzF.Server.Zone),
-		registry.Host(gfzF.Server.Host),
-		registry.Env(gfzF.Server.Env))
+		registry.Url(config.Get("server", "url").String("")),
+		registry.Nodes(strings.Split(config.Get("server", "nodes").String(""), ",")),
+		registry.Zone(config.Get("server", "zone").String("")),
+		registry.Host(config.Get("server", "host").String("")),
+		registry.Env(config.Get("server", "env").String("")))
 
 	n := Node(
-		Zone(gfzF.Server.Zone),
-		Name(gfzF.Server.S2sName))
+		Zone(config.Get("server", "zone").String("")),
+		Name(config.Get("server", "s2sname").String("")))
 
 	return &Server{
 		registry: registry,
