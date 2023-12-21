@@ -26,8 +26,9 @@ type client struct {
 }
 
 type CallCond struct {
-	Ch     chan int
-	Packet []byte
+	Ch      chan int
+	RpcCode int32
+	Packet  []byte
 }
 
 type Message interface {

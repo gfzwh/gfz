@@ -74,6 +74,7 @@ func (c *Client) call(res *socket.Response, rpc string, packet []byte, opts ...C
 		return make([]byte, 0), nil
 	}
 
+	var rpcCode int32
 	// 进行异步处理
 	select {
 	case <-time.After(time.Second * time.Duration(opt.timeout)):
@@ -82,10 +83,15 @@ func (c *Client) call(res *socket.Response, rpc string, packet []byte, opts ...C
 	case <-waitCh:
 		Pools().wrw.RLock()
 		packet = Pools().WaitReq[Sid].Packet
+		rpcCode = Pools().WaitReq[Sid].RpcCode
 		Pools().WaitReq[Sid].Packet = nil
 		Pools().wrw.RUnlock()
 
 		break
+	}
+
+	if 0 != rpcCode {
+		return nil, errors.New(fmt.Sprintf("Request to server failed! called code:%d", rpcCode))
 	}
 
 	return packet, nil

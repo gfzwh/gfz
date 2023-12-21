@@ -67,9 +67,7 @@ func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
 		}
 
 		if 0 != msg.Code {
-			zzlog.Debugw("Recv from server fail", zap.Int32("code", msg.Code), zap.Any("headers", msg.Headers))
-
-			return nil
+			zzlog.Warnw("Recv from server fail", zap.Int32("code", msg.Code), zap.Any("headers", msg.Headers))
 		}
 
 		// 异步接收到响应
@@ -78,11 +76,13 @@ func (p *pools) connect(svrname, name string) (t *net.TCPConn, err error) {
 		if _, ok := Pools().WaitReq[Sid]; ok {
 			cc := Pools().WaitReq[Sid]
 			cc.Packet = msg.Packet
+			cc.RpcCode = msg.Code
+
 			cc.Ch <- 0
 		}
 		Pools().wrw.RUnlock()
-		zzlog.Debugw("Recv from server", zap.Int64("Sid", Sid))
 
+		zzlog.Debugw("Recv from server", zap.Int64("Sid", Sid))
 		return nil
 	}, func(ctx context.Context, req *socket.Request) error {
 		index := -1
