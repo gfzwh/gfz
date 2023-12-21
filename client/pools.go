@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/gfzwh/gfz/common"
 	"github.com/gfzwh/gfz/proto"
@@ -152,8 +154,14 @@ func (p *pools) connectByName(svrname string) (t *socket.Response, err error) {
 		p.clients[svrname] = append(p.clients[svrname], clients...)
 	}
 
+	seed := time.Now().UnixNano()
+	src := rand.NewSource(seed)
+	rng := rand.New(src)
+
+	length := rng.Intn(len(p.clients[svrname]))
 	t = &socket.Response{
-		TCPConn: p.clients[svrname][0].T,
+		TCPConn: p.clients[svrname][length].T,
 	}
+	zzlog.Debugw("Select client connect", zap.Int("index", length))
 	return
 }

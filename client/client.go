@@ -47,7 +47,7 @@ func (c *Client) call(res *socket.Response, rpc string, packet []byte, opts ...C
 	data := &proto.MessageReq{
 		Sid:     Sid,
 		Headers: make(map[string]string),
-		RpcId:   int64(common.GenMethodNum(rpc)),
+		RpcId:   int64(common.GenRid(rpc)),
 		Packet:  packet,
 	}
 

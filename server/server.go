@@ -4,15 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/bilibili/discovery/naming"
 	"github.com/gfzwh/gfz/client"
-	"github.com/gfzwh/gfz/common"
 	"github.com/gfzwh/gfz/config"
 	"github.com/gfzwh/gfz/proto"
 	"github.com/gfzwh/gfz/registry"
@@ -23,19 +20,13 @@ import (
 	"github.com/StabbyCutyou/buffstreams"
 )
 
-type RidItem struct {
-	call func(context.Context, []byte) ([]byte, error)
-	name string
-}
-
 type Server struct {
-	rw         sync.RWMutex
-	rpcMap     map[uint64]RidItem
 	cancelFunc context.CancelFunc
 	registry   *registry.Registry
 	n          *node
 	sock       *socket.TCPListener
 	conf       *config.Gfz
+	rpcHandler *rpcHandler
 
 	reqs  int64 // 当前正在处理的请求
 	conns int64 // 当前连接的数量
@@ -63,8 +54,6 @@ func NewServer(conf_file string) *Server {
 		Name(gfzF.Server.S2sName))
 
 	return &Server{
-		rw:       sync.RWMutex{},
-		rpcMap:   make(map[uint64]RidItem),
 		registry: registry,
 		n:        n,
 	}
@@ -121,12 +110,13 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 		return err
 	}
 
-	var item RidItem
-	this.rw.RLock()
-	item = this.rpcMap[uint64(msg.GetRpcId())]
-	this.rw.RUnlock()
-	if nil == item.call {
-		return errors.New("func not exists!")
+	if _, ok := this.rpcHandler.calls[uint64(msg.GetRpcId())]; !ok {
+		return errors.New(fmt.Sprintf("RpcId called not register! rid:%d", msg.GetRpcId()))
+	}
+
+	item := this.rpcHandler.calls[uint64(msg.GetRpcId())]
+	if nil == item || nil == item.Call {
+		return errors.New(fmt.Sprintf("call func not exists! rid:%d", msg.GetRpcId()))
 	}
 
 	reqCount := this.incReq()
@@ -136,7 +126,7 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 		reqCount = this.decReq()
 		zzlog.Debugw("Recv from client",
 			zap.Int64("Sid", msg.Sid),
-			zap.String("method", item.name),
+			zap.String("method", item.Name),
 			zap.Int64("reqCount", reqCount),
 			zap.Int64("conns", this.conns),
 			zap.String("cost", fmt.Sprintf("%dms", time.Now().UnixMilli()-statAt)))
@@ -150,19 +140,20 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 
 	// 处理流量限制、熔段
 
-	ret, err := item.call(context.TODO(), msg.Packet)
+	ret, err := item.Call(context.TODO(), msg.Packet)
 	if nil != err {
 		res.Code = 505
 		this.reply(response, res)
 
 		return err
 	}
+	res.Packet = ret
+
 	// 不需要响应的直接返回
 	if 0 == msg.Sid {
 		return nil
 	}
 
-	res.Packet = ret
 	return this.reply(response, res)
 }
 
@@ -176,49 +167,10 @@ func (s *Server) reply(response *socket.Response, packet *proto.MessageResp) (er
 	return nil
 }
 
-type RpcItem struct {
-	Call func(context.Context, []byte) ([]byte, error)
-	Name string
-}
-type callHandler struct {
-	calls map[uint64]*RpcItem
-}
+func (s *Server) NewHandler(handler *rpcHandler) {
+	s.rpcHandler = handler
 
-func CallHandler() *callHandler {
-	return &callHandler{
-		calls: make(map[uint64]*RpcItem),
-	}
-}
-
-func (c *callHandler) Handler(rid uint64, rpc *RpcItem) {
-	c.calls[rid] = rpc
-}
-
-func (s *Server) NewHandler(instance interface{}, handler interface{}) error {
-	t := reflect.TypeOf(instance)
-	value := reflect.ValueOf(instance)
-
-	// 遍历结构体的方法
-	for i := 0; i < t.NumMethod(); i++ {
-		// 生成请求rid
-		method := t.Method(i)
-		rid := common.GenMethodNum(fmt.Sprintf("%s.%s", t.Name(), method.Name))
-
-		methodValue := value.Method(i)
-		result, ok := methodValue.Interface().(func(context.Context, []byte) ([]byte, error))
-		if ok {
-			s.rw.Lock()
-			s.rpcMap[rid] = RidItem{
-				call: result,
-				name: fmt.Sprintf("%s.%s", t.Name(), method.Name),
-			}
-
-			s.rw.Unlock()
-		}
-
-	}
-
-	return nil
+	return
 }
 
 func (s *Server) register(addr string) {

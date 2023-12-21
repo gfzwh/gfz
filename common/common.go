@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func GenMethodNum(mothed string) uint64 {
+func GenRid(mothed string) uint64 {
 	h := fnv.New64a()
 	h.Write([]byte(mothed))
 

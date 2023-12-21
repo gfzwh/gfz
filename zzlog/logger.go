@@ -35,7 +35,7 @@ func Init(opts ...LoggerOption) {
 
 	lumberjacklogger := &lumberjack.Logger{
 		Filename:   opt.logName,
-		MaxSize:    5, // megabytes
+		MaxSize:    16, // megabytes
 		MaxBackups: 3,
 		MaxAge:     7,    //days
 		Compress:   true, // disabled by default
