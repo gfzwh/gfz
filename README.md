@@ -36,3 +36,11 @@ if nil != err {
     zzlog.Infof("Create return %v\n", resp)
 }
 ```
+
+# metric
+通过prometheus处理指标，其中通过每台主机启动一个pushgateway；
+将进程指标通过Push上班到pushgateway中；
+配置prometheus服务采集pushgateway中的指标数据；
+
+https://kebingzao.com/2022/11/29/prometheus-3-grafana/
+通过prometheus + grafana可以生成强大的监控系统
