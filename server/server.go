@@ -12,6 +12,7 @@ import (
 	"github.com/bilibili/discovery/naming"
 	"github.com/gfzwh/gfz/client"
 	"github.com/gfzwh/gfz/config"
+	"github.com/gfzwh/gfz/metrics"
 	"github.com/gfzwh/gfz/proto"
 	"github.com/gfzwh/gfz/registry"
 	"github.com/gfzwh/gfz/socket"
@@ -86,6 +87,8 @@ func (s *Server) listen(ctx context.Context, req *socket.Request) error {
 
 func (this *Server) connect(ctx context.Context, req *socket.Request) error {
 	this.incConn()
+	metrics.SocketVec(req.RemoteAddr().String(), "connect")
+
 	zzlog.Infow("Server.connect called", zap.String("from", req.RemoteAddr().String()))
 
 	return nil
@@ -93,6 +96,8 @@ func (this *Server) connect(ctx context.Context, req *socket.Request) error {
 
 func (this *Server) closed(ctx context.Context, req *socket.Request) error {
 	this.decConn()
+	metrics.SocketVec(req.RemoteAddr().String(), "close")
+
 	zzlog.Infow("Server.closed called", zap.String("from", req.RemoteAddr().String()))
 
 	return nil
@@ -119,6 +124,12 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 	reqCount := this.incReq()
 	ctx = context.WithValue(ctx, "reqCount", reqCount)
 
+	res := &proto.MessageResp{
+		Sid:     msg.Sid,
+		Headers: msg.Headers,
+		Code:    0,
+	}
+
 	defer func() {
 		reqCount = this.decReq()
 		zzlog.Debugw("Recv from client",
@@ -127,14 +138,9 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 			zap.Int64("reqCount", reqCount),
 			zap.Int64("conns", this.conns),
 			zap.String("cost", fmt.Sprintf("%dms", time.Now().UnixMilli()-statAt)))
+
+		metrics.MethodCode(item.Name, fmt.Sprintf("%d", res.Code))
 	}()
-
-	res := &proto.MessageResp{
-		Sid:     msg.Sid,
-		Headers: msg.Headers,
-		Code:    0,
-	}
-
 	// 处理流量限制、熔段
 
 	ret, err := item.Call(context.TODO(), msg.Packet)
