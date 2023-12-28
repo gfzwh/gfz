@@ -65,12 +65,20 @@ func (this *Server) decReq() int64 {
 	return atomic.AddInt64(&this.reqs, -1)
 }
 
+func (this *Server) getReq() int64 {
+	return atomic.AddInt64(&this.reqs, 0)
+}
+
 func (this *Server) incConn() int64 {
 	return atomic.AddInt64(&this.conns, 1)
 }
 
 func (this *Server) decConn() int64 {
 	return atomic.AddInt64(&this.conns, -1)
+}
+
+func (this *Server) getConn() int64 {
+	return atomic.AddInt64(&this.conns, 0)
 }
 
 func (s *Server) listen(ctx context.Context, req *socket.Request) error {
@@ -86,8 +94,8 @@ func (s *Server) listen(ctx context.Context, req *socket.Request) error {
 }
 
 func (this *Server) connect(ctx context.Context, req *socket.Request) error {
-	this.incConn()
-	metrics.SocketVec(req.RemoteAddr().String(), "connect")
+	conns := this.incConn()
+	metrics.GfzByAdd("server", "connect", conns)
 
 	zzlog.Infow("Server.connect called", zap.String("from", req.RemoteAddr().String()))
 
@@ -96,7 +104,7 @@ func (this *Server) connect(ctx context.Context, req *socket.Request) error {
 
 func (this *Server) closed(ctx context.Context, req *socket.Request) error {
 	this.decConn()
-	metrics.SocketVec(req.RemoteAddr().String(), "close")
+	metrics.Gfz("server", "close")
 
 	zzlog.Infow("Server.closed called", zap.String("from", req.RemoteAddr().String()))
 
@@ -105,7 +113,16 @@ func (this *Server) closed(ctx context.Context, req *socket.Request) error {
 
 // method_num|data
 func (this *Server) recv(ctx context.Context, request *socket.Request, response *socket.Response) error {
-	statAt := time.Now().UnixMilli()
+	defer func() {
+		metrics.Gfz("server", "recv")
+		if r := recover(); r != nil {
+			metrics.Gfz("panic", "recv")
+
+			zzlog.Errorw("Server.recv error", zap.Error(r.(error)))
+		}
+	}()
+
+	statAt := time.Now()
 	msg := &proto.MessageReq{}
 	err := msg.Unmarshal(request.Packet())
 	if nil != err {
@@ -118,6 +135,8 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 
 	item := this.rpcHandler.calls[uint64(msg.GetRpcId())]
 	if nil == item || nil == item.Call {
+		metrics.Gfz("server", "not.Call")
+
 		return errors.New(fmt.Sprintf("call func not exists! rid:%d", msg.GetRpcId()))
 	}
 
@@ -137,9 +156,10 @@ func (this *Server) recv(ctx context.Context, request *socket.Request, response 
 			zap.String("method", item.Name),
 			zap.Int64("reqCount", reqCount),
 			zap.Int64("conns", this.conns),
-			zap.String("cost", fmt.Sprintf("%dms", time.Now().UnixMilli()-statAt)))
+			zap.String("cost", fmt.Sprintf("%dms", time.Now().UnixMilli()-statAt.UnixMilli())))
 
 		metrics.MethodCode(item.Name, fmt.Sprintf("%d", res.Code))
+		metrics.Summary(item.Name, statAt)
 	}()
 	// 处理流量限制、熔段
 
